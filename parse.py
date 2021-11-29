@@ -17,7 +17,7 @@ def read_input_file(path: str):
     >>> print(tasks[1])
     Task 2 has deadline 3, duration 4, and max benefit 5.0
     """
-    with open(path) as input_file:
+    with open(path, encoding="utf-8-sig") as input_file:
 
         input_lines = input_file.readlines()
         
@@ -125,7 +125,7 @@ def read_output_file(path: str):
     and that no task_id has been repeated
 
     Args: 
-    - path (str): path to the input file
+    - path (str): path to the output file
 
     Output:
     - List[int]: list of task_ids
@@ -138,7 +138,7 @@ def read_output_file(path: str):
     task_ids = set()
     task_ids_scheduled = []
 
-    with open(path) as input_file:
+    with open(path, encoding="utf-8-sig") as input_file:
 
         input_lines = input_file.readlines()
 
@@ -167,7 +167,7 @@ def write_output_file(path: str, task_ids):
     generates the corresponding output file
 
     Args: 
-    - path (str): path to the input file
+    - path (str): path to the output file
     - tasks (List[int]): list of task_ids
     
     Output:
