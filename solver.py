@@ -1,7 +1,7 @@
 from parse import read_input_file, write_output_file
 import os, random
 
-p = 0.9
+p = 0.95
 def greedy(tasks, time):
     if not tasks:
         return [], 0
@@ -53,11 +53,11 @@ def solve(tasks):
     return output
         
 if __name__ == '__main__':
-    for input_path in os.listdir('inputs/'):
-        if input_path[0] == ".":
+    for input_path in os.listdir('inputs_off/large/'):
+        if input_path[0] == '.':
             continue
-        output_path = 'outputs/' + input_path[:-3] + '.out'
+        output_path = 'outputs/large/' + input_path[:-3] + '.out'
         print(input_path)
-        tasks = read_input_file('inputs/' + input_path)
+        tasks = read_input_file('inputs_off/large/' + input_path)
         output = solve(tasks)
         write_output_file(output_path, output)
