@@ -4,16 +4,17 @@ import os, random
 p = 0.95
 def greedy(tasks, time):
     if not tasks:
-        return [], 0
+        return [], 0, tasks
     best_duration = 0
     best_ratio = 0
     best_task = None
     best_benefit = 0
-    for task in tasks[:]:
+    viable_tasks = []
+    for task in tasks:
         duration = task.get_duration()
         if time + duration > 1440:
-            tasks.remove(task)
             continue
+        viable_tasks.append(task)
         benefit = task.get_late_benefit(time - task.get_deadline())
         ratio = benefit / duration
         if ratio >= best_ratio:
@@ -28,18 +29,37 @@ def greedy(tasks, time):
                     best_duration = duration
                     best_benefit = benefit
     if not best_task:
-        return [], 0
-    task_list, profit = greedy([x for x in tasks if x != best_task], time + best_duration)
+        return [], 0, tasks
+    task_list, profit, remaining = greedy([x for x in tasks if x != best_task], time + best_duration)
     # p pick best and go with it
     # 1-p pick best and random and find best of two
     random_float = random.random()
-    if (random_float > p):
-        rand_task = tasks[random.randint(0, len(tasks) - 1)]
-        rand_task_list, rand_profit = greedy([x for x in tasks if x != rand_task], time + rand_task.get_duration())
+    if random_float > p:
+        rand_task = viable_tasks[random.randint(0, len(viable_tasks) - 1)]
+        rand_task_list, rand_profit, rand_remaining = greedy([x for x in tasks if x != rand_task], time + rand_task.get_duration())
         total_rand_profit = rand_profit + rand_task.get_late_benefit(time - rand_task.get_deadline())
-        if (total_rand_profit > profit + best_benefit):
-            return [rand_task.get_task_id()] + rand_task_list, total_rand_profit
-    return [best_task.get_task_id()] + task_list, profit + best_benefit
+        if total_rand_profit > profit + best_benefit:
+            return [(rand_task, time)] + rand_task_list, total_rand_profit, rand_remaining
+    return [(best_task, time)] + task_list, profit + best_benefit, remaining
+
+def local_search(initial_tasks, soln, remaining):
+    if not remaining:
+        return soln, 0
+    for i in range(len(soln)):
+        for _ in range(50):
+            task, timestep = soln[i]
+            rand_index = random.randint(0, len(remaining) - 1)
+            local_swap = remaining[rand_index]
+            if local_swap.get_duration() > task.get_duration():
+                continue
+            local_benefit = local_swap.get_late_benefit(timestep - local_swap.get_deadline())
+            og_benefit = task.get_late_benefit(timestep - task.get_deadline())
+            if local_benefit > og_benefit:
+                soln[i] = (local_swap, timestep)
+                remaining[rand_index] = task
+                local_opt, profit_increase = local_search(initial_tasks, soln, remaining)
+                return local_opt, profit_increase + local_benefit - og_benefit
+    return soln, 0
 
 def solve(tasks):
     """
@@ -48,9 +68,10 @@ def solve(tasks):
     Returns:
         output: list of igloos in order of polishing  
     """
-    output, profit = greedy(tasks, 0)
-    print(profit)
-    return output
+    output, profit, remaining = greedy(tasks, 0)
+    new_output, increase = local_search(tasks, output, remaining)
+    print(profit + increase, increase)
+    return [task[0].get_task_id() for task in new_output]
         
 if __name__ == '__main__':
     for input_path in os.listdir('inputs_off/large/'):
