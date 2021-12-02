@@ -2,6 +2,7 @@ from parse import read_input_file, write_output_file
 import os, random
 
 p = 0.95
+
 def greedy(tasks, time):
     if not tasks:
         return [], 0, tasks
@@ -45,6 +46,31 @@ def greedy(tasks, time):
 def local_search(initial_tasks, soln, remaining):
     if not remaining:
         return soln, 0
+    for i in range(0, len(soln) - 1, 2):
+        for _ in range(50):
+            task, timestep = soln[i]
+            task2, timestep2 = soln[i+1]
+            rand_index = random.randint(0, len(remaining) - 1)
+            local_swap = remaining[rand_index]
+            if local_swap.get_duration() > task.get_duration() + task2.get_duration():
+                continue
+            local_benefit = local_swap.get_late_benefit(timestep - local_swap.get_deadline())
+            og_benefit = task.get_late_benefit(timestep - task.get_deadline())
+            + task2.get_late_benefit(timestep2 - task2.get_deadline())
+            if local_benefit > og_benefit:
+                soln.pop(i)
+                soln.pop(i)
+                soln.insert(i, (local_swap, timestep))
+                remaining[rand_index] = task
+                remaining.append(task2)
+                local_opt, profit_increase = local_search(initial_tasks, soln, remaining)
+                return local_opt, profit_increase + local_benefit - og_benefit
+    return soln, 0
+    
+
+def local_search_og(initial_tasks, soln, remaining):
+    if not remaining:
+        return soln, 0
     for i in range(len(soln)):
         for _ in range(50):
             task, timestep = soln[i]
@@ -60,6 +86,8 @@ def local_search(initial_tasks, soln, remaining):
                 local_opt, profit_increase = local_search(initial_tasks, soln, remaining)
                 return local_opt, profit_increase + local_benefit - og_benefit
     return soln, 0
+
+
 
 def solve(tasks):
     """
