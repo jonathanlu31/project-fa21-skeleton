@@ -26,7 +26,7 @@ def greedy(tasks, time):
                 best_duration = duration
                 best_benefit = benefit
             else:
-                if duration < best_duration:
+                if duration > best_duration:
                     best_task = task
                     best_duration = duration
                     best_benefit = benefit
@@ -68,7 +68,7 @@ def local_search(initial_tasks, soln, remaining):
                 return local_opt, profit_increase + local_benefit - og_benefit
     return soln, 0
     
-def local_search_og(initial_tasks, soln, remaining):
+def local_search_og(soln, remaining):
     if not remaining:
         return soln, 0
     for i in range(len(soln)):
@@ -83,10 +83,41 @@ def local_search_og(initial_tasks, soln, remaining):
             if local_benefit > og_benefit:
                 soln[i] = (local_swap, timestep)
                 remaining[rand_index] = task
-                local_opt, profit_increase = local_search_og(initial_tasks, soln, remaining)
+                local_opt, profit_increase = local_search_og(soln, remaining)
                 return local_opt, profit_increase + local_benefit - og_benefit
     return soln, 0
 
+def calc_prof(soln):
+    total = 0.0
+    time = 0
+    for task, _ in soln:
+        time += task.get_duration()
+        total += task.get_late_benefit(time - task.get_deadline())
+    return total
+
+def local_search_swaps(initial_tasks, soln, profit):
+    for i in range(len(soln)):
+        for j in range(len(soln)):
+            if i == j:
+                continue
+            soln_cpy = soln[:]
+            task, _ = soln[i]
+            # rand_index = random.randint(0, len(initial_tasks) - 1)
+            local_swap = initial_tasks[j]
+            local_index = -1
+            for i in range(len(soln)):
+                if soln[i][0].get_task_id() == local_swap.get_task_id():
+                    local_index = i
+                    break
+            if local_index == -1:
+                soln_cpy[i] = (local_swap, 0)
+            else:
+                soln_cpy[local_index] = (task, 0)
+                soln_cpy[i] = (local_swap, 0)
+            new_profit = calc_prof(soln_cpy)
+            if new_profit > profit:
+                return local_search_swaps(initial_tasks, soln_cpy, new_profit)
+    return soln, calc_prof(soln)
 
 def solve(tasks):
     """
@@ -96,16 +127,16 @@ def solve(tasks):
         output: list of igloos in order of polishing  
     """
     output, profit, remaining = greedy(tasks, 0)
-    new_output, increase = local_search_og(tasks, output, remaining)
-    print(profit + increase, increase)
+    new_output, new_profit = local_search_og(tasks, output, profit)
+    print(new_profit, new_profit - profit)
     return [task[0].get_task_id() for task in new_output]
         
 if __name__ == '__main__':
-    for input_path in os.listdir('inputs_off/large/'):
+    for input_path in os.listdir('inputs_off/small/'):
         if input_path[0] == '.':
             continue
-        output_path = 'outputs/large/' + input_path[:-3] + '.out'
+        output_path = 'outputs/small/' + input_path[:-3] + '.out'
         print(input_path)
-        tasks = read_input_file('inputs_off/large/' + input_path)
+        tasks = read_input_file('inputs_off/small/' + input_path)
         output = solve(tasks)
         write_output_file(output_path, output)
