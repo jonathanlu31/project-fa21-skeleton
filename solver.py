@@ -7,7 +7,9 @@ def greedy(tasks, time):
     if not tasks:
         return [], 0, tasks
     best_duration = 0
-    best_ratio = 0
+    #best_ratio = 0
+    #best_regret = 0
+    best_weight = 0
     best_task = None
     best_benefit = 0
     viable_tasks = []
@@ -18,18 +20,25 @@ def greedy(tasks, time):
             continue
         viable_tasks.append(task)
         benefit = task.get_late_benefit(end_time - task.get_deadline())
-        ratio = benefit / duration
-        if ratio >= best_ratio:
-            if ratio > best_ratio:
-                best_ratio = ratio
-                best_task = task
-                best_duration = duration
-                best_benefit = benefit
-            else:
-                if duration > best_duration:
-                    best_task = task
-                    best_duration = duration
-                    best_benefit = benefit
+        regret = get_regret(time, task, tasks)
+        weight = get_weight(task, duration, time, regret)
+        if weight > best_weight:
+            best_weight = weight
+            best_task = task
+            best_duration = duration
+            best_benefit = benefit
+        # ratio = benefit / duration
+        # if ratio >= best_ratio:
+        #     if ratio > best_ratio:
+        #         best_ratio = ratio
+        #         best_task = task
+        #         best_duration = duration
+        #         best_benefit = benefit
+        #     else:
+        #         if duration > best_duration:
+        #             best_task = task
+        #             best_duration = duration
+        #             best_benefit = benefit
     if not best_task:
         return [], 0, tasks
     task_list, profit, remaining = greedy([x for x in tasks if x != best_task], time + best_duration)
@@ -43,6 +52,25 @@ def greedy(tasks, time):
         if total_rand_profit > profit + best_benefit:
             return [(rand_task, time)] + rand_task_list, total_rand_profit, rand_remaining
     return [(best_task, time)] + task_list, profit + best_benefit, remaining
+
+def get_regret(time, curr_task, remaining):
+    duration = curr_task.get_duration()
+    regret = 0
+    remains = remaining[:]
+    if curr_task in remains:
+        remains.remove(curr_task)
+    for task in remains:
+        regret_duration = time + duration + task.get_duration()
+        if regret_duration > task.get_deadline():
+            regret = max(regret, task.get_late_benefit(regret_duration - task.get_deadline()) - task.get_late_benefit(time+task.get_duration()-task.get_deadline()))
+    return regret - curr_task.get_late_benefit(time + duration - curr_task.get_deadline())
+
+def get_weight(task, task_dur, time, regret):
+    benefit = task.get_late_benefit(time + task_dur - task.get_deadline())
+    # do we need ratio if duration and benefit in weight calc already?
+    # ratio = benefit / task_dur
+    weight = benefit * 0.6 - task_dur * 0.2 - regret * 0.2
+    return weight
 
 def local_search(initial_tasks, soln, remaining):
     if not remaining:
@@ -126,9 +154,12 @@ def solve(tasks):
     Returns:
         output: list of igloos in order of polishing  
     """
+    # output, profit, remaining = greedy(tasks, 0)
+    # new_output, new_profit = local_search_og(output, remaining)
+    #print(new_profit, new_profit - profit)
     output, profit, remaining = greedy(tasks, 0)
-    new_output, new_profit = local_search_og(tasks, output, profit)
-    print(new_profit, new_profit - profit)
+    new_output, increase = local_search_og(output, remaining)
+    print(profit + increase, increase)
     return [task[0].get_task_id() for task in new_output]
         
 if __name__ == '__main__':
