@@ -74,20 +74,6 @@ def greedy(tasks, time):
             continue
         viable_tasks.append(task)
         benefit = task.get_late_benefit(end_time - task.get_deadline())
-<<<<<<< HEAD
-        ratio = benefit / duration
-        if ratio >= best_ratio:
-            if ratio > best_ratio:
-                best_ratio = ratio
-                best_task = task
-                best_duration = duration
-                best_benefit = benefit
-            else:
-                if duration < best_duration:
-                    best_task = task
-                    best_duration = duration
-                    best_benefit = benefit
-=======
         regret = get_regret(time, task, tasks)
         weight = get_weight(task, duration, time, regret)
         if weight > best_weight:
@@ -107,7 +93,6 @@ def greedy(tasks, time):
         #             best_task = task
         #             best_duration = duration
         #             best_benefit = benefit
->>>>>>> a8b7b63efa5352d313e3951c6fdbee96be3e9552
     if not best_task:
         return [], 0, tasks
     task_list, profit, remaining = greedy([x for x in tasks if x != best_task], time + best_duration)
@@ -223,20 +208,10 @@ def solve(tasks):
     Returns:
         output: list of igloos in order of polishing  
     """
-<<<<<<< HEAD
     output, profit, remaining = greedy_weighted(tasks, 0)
     new_output, new_profit = local_search_og(output, remaining)
     # print(new_profit, new_profit - profit)
     return [task[0].get_task_id() for task in new_output], profit + new_profit
-=======
-    # output, profit, remaining = greedy(tasks, 0)
-    # new_output, new_profit = local_search_og(output, remaining)
-    #print(new_profit, new_profit - profit)
-    output, profit, remaining = greedy(tasks, 0)
-    new_output, increase = local_search_og(output, remaining)
-    print(profit + increase, increase)
-    return [task[0].get_task_id() for task in new_output]
->>>>>>> a8b7b63efa5352d313e3951c6fdbee96be3e9552
         
 if __name__ == '__main__':
     total = 0
