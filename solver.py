@@ -1,5 +1,5 @@
 from parse import read_input_file, write_output_file
-import os, random
+import os, random, math
 
 p = 0.95
 # profit weight
@@ -23,7 +23,7 @@ def greedy_weighted(tasks, time):
     """
     if not tasks:
         return [], 0, tasks
-    best_weight = -float("inf")
+    best_weight = float("-inf")
     best_task_index = -1
     viable_tasks = []
     for i in range(len(tasks)):
@@ -35,20 +35,23 @@ def greedy_weighted(tasks, time):
         viable_tasks.append(task)
         deadline = task.get_deadline()
         benefit = task.get_late_benefit(end_time - deadline)
-        weight = benefit * p_w - duration * t_w - deadline * d_w
+        ratio = benefit / duration
+        # regret = get_regret(time, task, tasks)
+        weight = benefit * 0.41 - duration * 0.58 - deadline * 0.01
         if weight > best_weight:
             best_task_index = i
+            best_weight = weight
     if best_task_index == -1:
         return [], 0, tasks
     best_task = tasks[best_task_index]
-    task_list, profit, remaining = greedy([task for task in viable_tasks if task != best_task], time + best_task.get_duration())
+    task_list, profit, remaining = greedy_weighted([task for task in viable_tasks if task != best_task], time + best_task.get_duration())
     profit += best_task.get_late_benefit(time + best_task.get_duration() - best_task.get_deadline())
     # p pick best and go with it
     # 1-p pick best and random and find best of two
     random_float = random.random()
     if random_float > p:
         rand_task = viable_tasks[random.randint(0, len(viable_tasks) - 1)]
-        rand_task_list, rand_profit, rand_remaining = greedy([x for x in viable_tasks if x != rand_task], time + rand_task.get_duration())
+        rand_task_list, rand_profit, rand_remaining = greedy_weighted([x for x in viable_tasks if x != rand_task], time + rand_task.get_duration())
         rand_profit += rand_task.get_late_benefit(time  + rand_task.get_duration() - rand_task.get_deadline())
         if rand_profit > profit:
             best_task = rand_task
@@ -109,11 +112,10 @@ def greedy(tasks, time):
 
 def get_regret(time, curr_task, remaining):
     duration = curr_task.get_duration()
-    regret = 0
-    remains = remaining[:]
-    if curr_task in remains:
-        remains.remove(curr_task)
-    for task in remains:
+    regret = -float("inf")
+    for task in remaining:
+        if task == curr_task:
+            continue
         regret_duration = time + duration + task.get_duration()
         if regret_duration > task.get_deadline():
             regret = max(regret, task.get_late_benefit(regret_duration - task.get_deadline()) - task.get_late_benefit(time+task.get_duration()-task.get_deadline()))
@@ -123,8 +125,7 @@ def get_weight(task, task_dur, time, regret):
     benefit = task.get_late_benefit(time + task_dur - task.get_deadline())
     # do we need ratio if duration and benefit in weight calc already?
     # ratio = benefit / task_dur
-    weight = benefit * 0.6 - task_dur * 0.2 - regret * 0.2
-    return weight
+    return benefit * 0.6 - task_dur * 0.2 - regret * 0.2
 
 def local_search(initial_tasks, soln, remaining):
     if not remaining:
@@ -174,18 +175,20 @@ def calc_prof(soln):
     time = 0
     for task, _ in soln:
         time += task.get_duration()
+        if time > 1440:
+            break
         total += task.get_late_benefit(time - task.get_deadline())
     return total
 
 def local_search_swaps(initial_tasks, soln, profit):
     for i in range(len(soln)):
-        for j in range(len(soln)):
-            if i == j:
-                continue
+        for j in range(len(initial_tasks)):
             soln_cpy = soln[:]
             task, _ = soln[i]
             # rand_index = random.randint(0, len(initial_tasks) - 1)
             local_swap = initial_tasks[j]
+            if local_swap == task:
+                continue
             local_index = -1
             for i in range(len(soln)):
                 if soln[i][0].get_task_id() == local_swap.get_task_id():
@@ -197,8 +200,14 @@ def local_search_swaps(initial_tasks, soln, profit):
                 soln_cpy[local_index] = (task, 0)
                 soln_cpy[i] = (local_swap, 0)
             new_profit = calc_prof(soln_cpy)
-            if new_profit > profit:
+            difference = new_profit - profit
+            if difference > 0:
                 return local_search_swaps(initial_tasks, soln_cpy, new_profit)
+            else:
+                # replace with prob e^(delta/T)
+                rand_float = random.random()
+                if rand_float < math.exp(difference / temp):
+                    return local_search_swaps(initial_tasks, soln_cpy, new_profit)
     return soln, calc_prof(soln)
 
 def solve(tasks):
@@ -209,9 +218,9 @@ def solve(tasks):
         output: list of igloos in order of polishing  
     """
     output, profit, remaining = greedy_weighted(tasks, 0)
-    new_output, new_profit = local_search_og(output, remaining)
-    # print(new_profit, new_profit - profit)
-    return [task[0].get_task_id() for task in new_output], profit + new_profit
+    new_output, new_profit = local_search_swaps(tasks, output, profit)
+    print(new_profit, new_profit - profit)
+    return [task[0].get_task_id() for task in new_output], new_profit
         
 if __name__ == '__main__':
     total = 0
