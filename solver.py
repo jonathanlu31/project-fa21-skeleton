@@ -127,48 +127,48 @@ def get_weight(task, task_dur, time, regret):
     # ratio = benefit / task_dur
     return benefit * 0.6 - task_dur * 0.2 - regret * 0.2
 
-def local_search(initial_tasks, soln, remaining):
-    if not remaining:
-        return soln, 0
-    for i in range(0, len(soln) - 1, 2):
-        for _ in range(50):
-            task, timestep = soln[i]
-            task2, timestep2 = soln[i+1]
-            rand_index = random.randint(0, len(remaining) - 1)
-            local_swap = remaining[rand_index]
-            local_end = timestep + local_swap.get_duration()
-            if local_end > timestep2 + task2.get_duration():
-                continue
-            local_benefit = local_swap.get_late_benefit(local_end - local_swap.get_deadline())
-            og_benefit = task.get_late_benefit(timestep + task.get_duration() - task.get_deadline()) + task2.get_late_benefit(timestep2 + task2.get_duration() - task2.get_deadline())
-            if local_benefit > og_benefit:
-                soln.pop(i)
-                soln.pop(i)
-                soln.insert(i, (local_swap, timestep))
-                remaining[rand_index] = task
-                remaining.append(task2)
-                local_opt, profit_increase = local_search(initial_tasks, soln, remaining)
-                return local_opt, profit_increase + local_benefit - og_benefit
-    return soln, 0
+# def local_search(initial_tasks, soln, remaining):
+#     if not remaining:
+#         return soln, 0
+#     for i in range(0, len(soln) - 1, 2):
+#         for _ in range(50):
+#             task, timestep = soln[i]
+#             task2, timestep2 = soln[i+1]
+#             rand_index = random.randint(0, len(remaining) - 1)
+#             local_swap = remaining[rand_index]
+#             local_end = timestep + local_swap.get_duration()
+#             if local_end > timestep2 + task2.get_duration():
+#                 continue
+#             local_benefit = local_swap.get_late_benefit(local_end - local_swap.get_deadline())
+#             og_benefit = task.get_late_benefit(timestep + task.get_duration() - task.get_deadline()) + task2.get_late_benefit(timestep2 + task2.get_duration() - task2.get_deadline())
+#             if local_benefit > og_benefit:
+#                 soln.pop(i)
+#                 soln.pop(i)
+#                 soln.insert(i, (local_swap, timestep))
+#                 remaining[rand_index] = task
+#                 remaining.append(task2)
+#                 local_opt, profit_increase = local_search(initial_tasks, soln, remaining)
+#                 return local_opt, profit_increase + local_benefit - og_benefit
+#     return soln, 0
     
-def local_search_og(soln, remaining):
-    if not remaining:
-        return soln, 0
-    for i in range(len(soln)):
-        for _ in range(50):
-            task, timestep = soln[i]
-            rand_index = random.randint(0, len(remaining) - 1)
-            local_swap = remaining[rand_index]
-            if local_swap.get_duration() > task.get_duration():
-                continue
-            local_benefit = local_swap.get_late_benefit(timestep - local_swap.get_deadline())
-            og_benefit = task.get_late_benefit(timestep - task.get_deadline())
-            if local_benefit > og_benefit:
-                soln[i] = (local_swap, timestep)
-                remaining[rand_index] = task
-                local_opt, profit_increase = local_search_og(soln, remaining)
-                return local_opt, profit_increase + local_benefit - og_benefit
-    return soln, 0
+# def local_search_og(soln, remaining):
+#     if not remaining:
+#         return soln, 0
+#     for i in range(len(soln)):
+#         for _ in range(50):
+#             task, timestep = soln[i]
+#             rand_index = random.randint(0, len(remaining) - 1)
+#             local_swap = remaining[rand_index]
+#             if local_swap.get_duration() > task.get_duration():
+#                 continue
+#             local_benefit = local_swap.get_late_benefit(timestep - local_swap.get_deadline())
+#             og_benefit = task.get_late_benefit(timestep - task.get_deadline())
+#             if local_benefit > og_benefit:
+#                 soln[i] = (local_swap, timestep)
+#                 remaining[rand_index] = task
+#                 local_opt, profit_increase = local_search_og(soln, remaining)
+#                 return local_opt, profit_increase + local_benefit - og_benefit
+#     return soln, 0
 
 def calc_prof(soln):
     total = 0.0
@@ -181,17 +181,23 @@ def calc_prof(soln):
     return total
 
 def local_search_swaps(initial_tasks, soln, profit):
-    for i in range(len(soln)):
-        for j in range(len(initial_tasks)):
-            soln_cpy = soln[:]
-            task, _ = soln[i]
-            # rand_index = random.randint(0, len(initial_tasks) - 1)
-            local_swap = initial_tasks[j]
+    temp = 2000
+    alpha = 0.9
+    curr_soln = soln
+    curr_profit = profit
+    while temp > 5:
+        for _ in range(50):
+            i = random.randint(0, len(curr_soln) - 1)
+            task, _ = curr_soln[i]
+            soln_cpy = curr_soln[:]
+            rand_index = random.randint(0, len(initial_tasks) - 1)
+            local_swap = initial_tasks[rand_index]
             if local_swap == task:
                 continue
             local_index = -1
-            for i in range(len(soln)):
-                if soln[i][0].get_task_id() == local_swap.get_task_id():
+            # can add remaining tasks to task_list so you dont have to find the index
+            for i in range(len(curr_soln)):
+                if curr_soln[i][0].get_task_id() == local_swap.get_task_id():
                     local_index = i
                     break
             if local_index == -1:
@@ -200,15 +206,18 @@ def local_search_swaps(initial_tasks, soln, profit):
                 soln_cpy[local_index] = (task, 0)
                 soln_cpy[i] = (local_swap, 0)
             new_profit = calc_prof(soln_cpy)
-            difference = new_profit - profit
+            difference = new_profit - curr_profit
             if difference > 0:
-                return local_search_swaps(initial_tasks, soln_cpy, new_profit)
+                curr_soln = soln_cpy
+                curr_profit = new_profit
             else:
                 # replace with prob e^(delta/T)
                 rand_float = random.random()
                 if rand_float < math.exp(difference / temp):
-                    return local_search_swaps(initial_tasks, soln_cpy, new_profit)
-    return soln, calc_prof(soln)
+                    curr_soln = soln_cpy
+                    curr_profit = new_profit
+        temp *= alpha
+    return curr_soln, calc_prof(curr_soln)
 
 def solve(tasks):
     """
@@ -224,12 +233,12 @@ def solve(tasks):
         
 if __name__ == '__main__':
     total = 0
-    for input_path in os.listdir('inputs_off/small/'):
+    for input_path in os.listdir('inputs_off/medium/'):
         if input_path[0] == '.':
             continue
-        output_path = 'outputs/small/' + input_path[:-3] + '.out'
+        output_path = 'outputs/medium/' + input_path[:-3] + '.out'
         print(input_path)
-        tasks = read_input_file('inputs_off/small/' + input_path)
+        tasks = read_input_file('inputs_off/medium/' + input_path)
         output, prof = solve(tasks)
         total += prof
         write_output_file(output_path, output)
