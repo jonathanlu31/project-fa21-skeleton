@@ -1,5 +1,5 @@
 from parse import read_input_file, write_output_file
-import os, random, math
+import os, random, math, heapq, numpy as np
 
 p = 0.95
 # profit weight
@@ -173,7 +173,7 @@ def get_weight(task, task_dur, time, regret):
 def calc_prof(soln):
     total = 0.0
     time = 0
-    for task, _ in soln:
+    for task in soln:
         time += task.get_duration()
         if time > 1440:
             break
@@ -219,6 +219,104 @@ def local_search_swaps(initial_tasks, soln, profit):
         temp *= alpha
     return curr_soln, calc_prof(curr_soln)
 
+def genetic(tasks):
+    """
+    init: generate 500 random answers
+    take the top ten for next gen
+    crossover: select 2 parents, choose a random point to splice at and swap the sequence
+    mutation: for every igloo of the child, mutate with small probability to something random
+    repeat for x iterations
+    return the best one
+    hyperparameters: popsize, crossover rate, mutation rate, end condition, parent selection algorithm
+    """
+    pop_size = 500
+    population = init_pop(pop_size, tasks)
+    for _ in range(100):
+        prof_list = [(x, calc_prof(x)) for x in population]
+        top_ten = heapq.nlargest(10, prof_list, key=lambda x: x[1])
+        next_gen = [x[0] for x in top_ten]
+        for _ in range(0, 490, 2):
+            p1, p2 = select_parents(prof_list, pop_size)
+            c1, c2 = crossover(p1, p2)
+            mutate(c1, tasks)
+            mutate(c2, tasks)
+            next_gen.append(c1)
+            next_gen.append(c2)
+        population = next_gen
+    return max_prof_instance(population)
+
+def init_pop(pop_size, tasks):
+    pop = []
+    for _ in range(pop_size):
+        pop.append(gen_rand_task_list(tasks))
+    return pop
+
+def gen_rand_task_list(tasks):
+    time = 0
+    task_permutation = np.random.permutation(len(tasks))
+    task_list = []
+    for task_index in task_permutation:
+        selected_task = tasks[task_index]
+        if time + selected_task.get_duration() <= 1440:
+            task_list.append(selected_task)
+            time += selected_task.get_duration()
+        if time >= 1440:
+            break
+    return task_list
+
+def select_parents(prof_list, pop_size):
+    parents = []
+    for _ in range(2):
+        p_candidate1 = prof_list[random.randint(0, pop_size - 1)]
+        p_candidate2 = prof_list[random.randint(0, pop_size - 1)]
+        # parents.append(max(p_candidate1, p_candidate2, key=lambda x: prof_list[x][1]))
+        if p_candidate1[1] > p_candidate2[1]:
+            parents.append(p_candidate1[0])
+        else:
+            parents.append(p_candidate2[0])
+    return parents
+
+def crossover(p1, p2):
+    rand_ind = random.randint(0, min(len(p1), len(p2)) - 1)
+    p1_left, p1_right = p1[:rand_ind], p1[rand_ind:]
+    p2_left, p2_right = p2[:rand_ind], p2[rand_ind:]
+    child1 = p1_left + p2_right
+    child2 = p2_left + p1_right
+    return child1, child2
+
+def mutate(soln, tasks):
+    p = 0.01
+    for i in range(len(soln)):
+        random_float = random.random()
+        if random_float < p:
+            rand_ind = random.randint(0, len(tasks) - 1)
+            i = random.randint(0, len(soln) - 1)
+            soln_task = soln[i]
+            swap_task = tasks[rand_ind]
+            if soln_task is swap_task:
+                continue
+            local_index = -1
+            for i in range(len(soln)):
+                if soln[i].get_task_id() == swap_task.get_task_id():
+                    local_index = i
+                    break
+            if local_index == -1:
+                soln[i] = swap_task
+            else:
+                soln[local_index] = soln_task
+                soln[i] = swap_task
+
+def max_prof_instance(pop):
+    max_prof_inst = None
+    max_profit = 0
+    for instance in pop:
+        profit = calc_prof(instance)
+        if profit > max_profit:
+            max_profit = profit
+            max_prof_inst = instance
+    return max_prof_inst, max_profit
+
+
 def solve(tasks):
     """
     Args:
@@ -226,19 +324,21 @@ def solve(tasks):
     Returns:
         output: list of igloos in order of polishing  
     """
-    output, profit, remaining = greedy_weighted(tasks, 0)
-    new_output, new_profit = local_search_swaps(tasks, output, profit)
-    print(new_profit, new_profit - profit)
-    return [task[0].get_task_id() for task in new_output], new_profit
+    # output, profit, remaining = greedy_weighted(tasks, 0)
+    # new_output, new_profit = local_search_swaps(tasks, output, profit)
+    # print(new_profit, new_profit - profit)
+    output, profit = genetic(tasks)
+    print(profit)
+    return [task.get_task_id() for task in output], profit
         
 if __name__ == '__main__':
     total = 0
-    for input_path in os.listdir('inputs_off/medium/'):
+    for input_path in os.listdir('inputs_off/small/'):
         if input_path[0] == '.':
             continue
-        output_path = 'outputs/medium/' + input_path[:-3] + '.out'
+        output_path = 'outputs/small/' + input_path[:-3] + '.out'
         print(input_path)
-        tasks = read_input_file('inputs_off/medium/' + input_path)
+        tasks = read_input_file('inputs_off/small/' + input_path)
         output, prof = solve(tasks)
         total += prof
         write_output_file(output_path, output)
