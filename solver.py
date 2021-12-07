@@ -310,6 +310,56 @@ def calc_prof(soln):
         total += task.get_late_benefit(time - task.get_deadline())
     return total, i
 
+def asa(initial_tasks, soln, profit):
+    curr_soln = soln
+    curr_prof = profit
+    temp = 0.5
+    accept_rate = 0.5
+    target_rate = 0.44
+    N = 2000
+    m0, m1, m2 = .56, 560 ** (-1/.15*N), 440 ** (-1/.35*N)
+    for i in range(N):
+        for _ in range(20):
+            i = random.randint(0, len(curr_soln) - 1)
+            task = curr_soln[i]
+            soln_cpy = curr_soln[:]
+            rand_index = random.randint(0, len(initial_tasks) - 1)
+            local_swap = initial_tasks[rand_index]
+            if local_swap == task:
+                continue
+            local_index = -1
+            for j in range(len(curr_soln)):
+                if curr_soln[j].get_task_id() == local_swap.get_task_id():
+                    local_index = j
+                    break
+            if local_index == -1:
+                soln_cpy[i] = local_swap
+            else:
+                soln_cpy[local_index] = task
+                soln_cpy[i] = local_swap
+        new_profit, _ = calc_prof(soln_cpy)
+        difference = new_profit - curr_prof
+        if difference > 0 or random.random() < math.exp(difference / temp):
+            curr_soln = soln_cpy
+            curr_prof = new_profit
+            accept_rate = .998 * accept_rate + .002
+        else:
+            accept_rate = .998 * accept_rate
+        if i <= .15*N:
+            m0= m0 * m1
+            target_rate = .44 + m0
+        elif i > .65*N:
+            target_rate = target_rate * m2
+        else:
+            target_rate = .44
+        if accept_rate > target_rate:
+            temp *= .999
+        else:
+            temp /= .999
+    return curr_soln, calc_prof(curr_soln)
+
+
+
 def local_search_swaps(initial_tasks, soln, profit):
     """
     hyperparameters: alpha (temp decay rate), temp decay schedule, starting temp, iterations per temp
@@ -363,7 +413,7 @@ def solve(tasks):
     # output = gen_rand_task_list(tasks)
     # output = [(x, 0) for x in output]
     # profit = calc_prof(output)
-    new_output, (new_profit, end_index) = local_search_swaps(tasks, output, profit)
+    new_output, (new_profit, end_index) = asa(tasks, output, profit)
     print(new_profit, new_profit - profit)
     # output, profit = genetic(tasks)
     # print(profit)
@@ -376,12 +426,12 @@ def solve(tasks):
         
 if __name__ == '__main__':
     total = 0
-    for input_path in os.listdir('inputs_off/large/'):
+    for input_path in os.listdir('inputs_off/small/'):
         if input_path[0] == '.':
             continue
-        output_path = 'outputs/large/' + input_path[:-3] + '.out'
+        output_path = 'outputs/small/' + input_path[:-3] + '.out'
         print(input_path)
-        tasks = read_input_file('inputs_off/large/' + input_path)
+        tasks = read_input_file('inputs_off/small/' + input_path)
         output, prof = solve(tasks)
         total += prof
         write_output_file(output_path, output)
