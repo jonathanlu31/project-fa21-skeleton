@@ -96,3 +96,5 @@ class Task:
         return "Task {} has deadline {}, duration {}, and max benefit {}".format(self.get_task_id(), self.get_deadline(), self.get_duration(), self.get_max_benefit())
 
     # Feel free to add more helper functions here
+    def __hash__(self):
+        return hash(self.get_task_id())

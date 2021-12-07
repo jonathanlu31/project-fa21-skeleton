@@ -231,9 +231,13 @@ def genetic(tasks):
     """
     pop_size = 500
     population = init_pop(pop_size, tasks)
+    # prev_max = 0
+    # best = -1
     for _ in range(100):
         prof_list = [(x, calc_prof(x)) for x in population]
         top_ten = heapq.nlargest(10, prof_list, key=lambda x: x[1])
+        # prev_max = best
+        # best = top_ten[0][1]
         next_gen = [x[0] for x in top_ten]
         for _ in range(0, 490, 2):
             p1, p2 = select_parents(prof_list, pop_size)
@@ -278,8 +282,29 @@ def select_parents(prof_list, pop_size):
 
 def crossover(p1, p2):
     rand_ind = random.randint(0, min(len(p1), len(p2)) - 1)
-    p1_left, p1_right = p1[:rand_ind], p1[rand_ind:]
-    p2_left, p2_right = p2[:rand_ind], p2[rand_ind:]
+    p1_left, p1_right = p1[:rand_ind], []
+    p1_set = set(p1_left)
+    for i in range(rand_ind, len(p2)):
+        task = p2[i]
+        if task in p1_set:
+            if i < len(p1):
+                p1_right.append(p1[i])
+                p1_set.add(p1[i])
+        else:
+            p1_right.append(p2[i])
+            p1_set.add(p2[i])
+
+    p2_left, p2_right = p2[:rand_ind], []
+    p2_set = set(p2_left)
+    for i in range(rand_ind, len(p1)):
+        task = p1[i]
+        if task in p2_set:
+            if i < len(p2):
+                p2_right.append(p2[i])
+                p2_set.add(p2[i])
+        else:
+            p2_right.append(p1[i])
+            p2_set.add(p1[i])
     child1 = p1_left + p2_right
     child2 = p2_left + p1_right
     return child1, child2
