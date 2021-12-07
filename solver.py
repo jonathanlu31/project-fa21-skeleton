@@ -22,7 +22,7 @@ def greedy_weighted(tasks, time):
         remaining [list]: remaining tasks not taken
     """
     if not tasks:
-        return [], 0, tasks
+        return [], 0
     best_weight = float("-inf")
     best_task_index = -1
     viable_tasks = []
@@ -38,27 +38,27 @@ def greedy_weighted(tasks, time):
         ratio = benefit / duration
         # regret = get_regret(time, task, tasks)
         weight = benefit * 0.41 - duration * 0.58 - deadline * 0.01
+        # weight = ratio - deadline * 0.001
         if weight > best_weight:
             best_task_index = i
             best_weight = weight
     if best_task_index == -1:
-        return [], 0, tasks
+        return [], 0
     best_task = tasks[best_task_index]
-    task_list, profit, remaining = greedy_weighted([task for task in viable_tasks if task != best_task], time + best_task.get_duration())
+    task_list, profit = greedy_weighted([task for task in viable_tasks if task != best_task], time + best_task.get_duration())
     profit += best_task.get_late_benefit(time + best_task.get_duration() - best_task.get_deadline())
     # p pick best and go with it
     # 1-p pick best and random and find best of two
     random_float = random.random()
     if random_float > p:
         rand_task = viable_tasks[random.randint(0, len(viable_tasks) - 1)]
-        rand_task_list, rand_profit, rand_remaining = greedy_weighted([x for x in viable_tasks if x != rand_task], time + rand_task.get_duration())
+        rand_task_list, rand_profit = greedy_weighted([x for x in viable_tasks if x != rand_task], time + rand_task.get_duration())
         rand_profit += rand_task.get_late_benefit(time  + rand_task.get_duration() - rand_task.get_deadline())
         if rand_profit > profit:
             best_task = rand_task
             task_list = rand_task_list
             profit = rand_profit
-            remaining = rand_remaining
-    return [(best_task, time)] + task_list, profit, remaining
+    return [best_task] + task_list, profit
 
 def greedy(tasks, time):
     if not tasks:
@@ -170,55 +170,6 @@ def get_weight(task, task_dur, time, regret):
 #                 return local_opt, profit_increase + local_benefit - og_benefit
 #     return soln, 0
 
-def calc_prof(soln):
-    total = 0.0
-    time = 0
-    for task in soln:
-        time += task.get_duration()
-        if time > 1440:
-            break
-        total += task.get_late_benefit(time - task.get_deadline())
-    return total
-
-def local_search_swaps(initial_tasks, soln, profit):
-    temp = 2000
-    alpha = 0.9
-    curr_soln = soln
-    curr_profit = profit
-    while temp > 5:
-        for _ in range(50):
-            i = random.randint(0, len(curr_soln) - 1)
-            task, _ = curr_soln[i]
-            soln_cpy = curr_soln[:]
-            rand_index = random.randint(0, len(initial_tasks) - 1)
-            local_swap = initial_tasks[rand_index]
-            if local_swap == task:
-                continue
-            local_index = -1
-            # can add remaining tasks to task_list so you dont have to find the index
-            for i in range(len(curr_soln)):
-                if curr_soln[i][0].get_task_id() == local_swap.get_task_id():
-                    local_index = i
-                    break
-            if local_index == -1:
-                soln_cpy[i] = (local_swap, 0)
-            else:
-                soln_cpy[local_index] = (task, 0)
-                soln_cpy[i] = (local_swap, 0)
-            new_profit = calc_prof(soln_cpy)
-            difference = new_profit - curr_profit
-            if difference > 0:
-                curr_soln = soln_cpy
-                curr_profit = new_profit
-            else:
-                # replace with prob e^(delta/T)
-                rand_float = random.random()
-                if rand_float < math.exp(difference / temp):
-                    curr_soln = soln_cpy
-                    curr_profit = new_profit
-        temp *= alpha
-    return curr_soln, calc_prof(curr_soln)
-
 def genetic(tasks):
     """
     init: generate 500 random answers
@@ -229,11 +180,12 @@ def genetic(tasks):
     return the best one
     hyperparameters: popsize, crossover rate, mutation rate, end condition, parent selection algorithm
     """
-    pop_size = 500
+    pop_size = 100
     population = init_pop(pop_size, tasks)
+    cross_prob = 0.9
     # prev_max = 0
     # best = -1
-    for _ in range(100):
+    for _ in range(1000):
         prof_list = [(x, calc_prof(x)) for x in population]
         top_ten = heapq.nlargest(10, prof_list, key=lambda x: x[1])
         # prev_max = best
@@ -241,7 +193,13 @@ def genetic(tasks):
         next_gen = [x[0] for x in top_ten]
         for _ in range(0, 490, 2):
             p1, p2 = select_parents(prof_list, pop_size)
-            c1, c2 = crossover(p1, p2)
+            rand_cross = random.random()
+            if rand_cross < cross_prob:
+                c1, c2 = crossover(p1, p2)
+            else:
+                c1, c2 = p1[:], p2[:]
+            # rand_mutate = random.random()
+            # if rand_mutate < mutate_prob:
             mutate(c1, tasks)
             mutate(c2, tasks)
             next_gen.append(c1)
@@ -271,13 +229,12 @@ def gen_rand_task_list(tasks):
 def select_parents(prof_list, pop_size):
     parents = []
     for _ in range(2):
-        p_candidate1 = prof_list[random.randint(0, pop_size - 1)]
-        p_candidate2 = prof_list[random.randint(0, pop_size - 1)]
-        # parents.append(max(p_candidate1, p_candidate2, key=lambda x: prof_list[x][1]))
-        if p_candidate1[1] > p_candidate2[1]:
-            parents.append(p_candidate1[0])
-        else:
-            parents.append(p_candidate2[0])
+        p_candidates = [prof_list[random.randint(0, pop_size - 1)] for _ in range(5)]
+        parents.append(max(p_candidates, key=lambda x: x[1])[0])
+        # if p_candidate1[1] > p_candidate2[1]:
+        #     parents.append(p_candidate1[0])
+        # else:
+        #     parents.append(p_candidate2[0])
     return parents
 
 def crossover(p1, p2):
@@ -341,6 +298,59 @@ def max_prof_instance(pop):
             max_prof_inst = instance
     return max_prof_inst, max_profit
 
+def calc_prof(soln):
+    total = 0.0
+    time = 0
+    for i in range(len(soln)):
+        task = soln[i]
+        time += task.get_duration()
+        if time > 1440:
+            i -= 1
+            break
+        total += task.get_late_benefit(time - task.get_deadline())
+    return total, i
+
+def local_search_swaps(initial_tasks, soln, profit):
+    """
+    hyperparameters: alpha (temp decay rate), temp decay schedule, starting temp, iterations per temp
+    """
+    temp = 4000
+    alpha = 0.99
+    curr_soln = soln
+    curr_profit = profit
+    while temp > 5:
+        for _ in range(50):
+            i = random.randint(0, len(curr_soln) - 1)
+            task= curr_soln[i]
+            soln_cpy = curr_soln[:]
+            rand_index = random.randint(0, len(initial_tasks) - 1)
+            local_swap = initial_tasks[rand_index]
+            if local_swap == task:
+                continue
+            local_index = -1
+            # can add remaining tasks to task_list so you dont have to find the index
+            for j in range(len(curr_soln)):
+                if curr_soln[j].get_task_id() == local_swap.get_task_id():
+                    local_index = j
+                    break
+            if local_index == -1:
+                soln_cpy[i] = local_swap
+            else:
+                soln_cpy[local_index] = task
+                soln_cpy[i] = local_swap
+            new_profit, _ = calc_prof(soln_cpy)
+            difference = new_profit - curr_profit
+            if difference > 0:
+                curr_soln = soln_cpy
+                curr_profit = new_profit
+            else:
+                # replace with prob e^(delta/T)
+                rand_float = random.random()
+                if rand_float < math.exp(difference / temp):
+                    curr_soln = soln_cpy
+                    curr_profit = new_profit
+        temp *= alpha
+    return curr_soln, calc_prof(curr_soln)
 
 def solve(tasks):
     """
@@ -349,21 +359,29 @@ def solve(tasks):
     Returns:
         output: list of igloos in order of polishing  
     """
-    # output, profit, remaining = greedy_weighted(tasks, 0)
-    # new_output, new_profit = local_search_swaps(tasks, output, profit)
-    # print(new_profit, new_profit - profit)
-    output, profit = genetic(tasks)
-    print(profit)
-    return [task.get_task_id() for task in output], profit
+    output, profit = greedy_weighted(tasks, 0)
+    # output = gen_rand_task_list(tasks)
+    # output = [(x, 0) for x in output]
+    # profit = calc_prof(output)
+    new_output, (new_profit, end_index) = local_search_swaps(tasks, output, profit)
+    print(new_profit, new_profit - profit)
+    # output, profit = genetic(tasks)
+    # print(profit)
+    final_output = output
+    final_profit = profit
+    if new_profit > profit:
+        final_output = new_output[:end_index + 1]
+        final_profit = new_profit
+    return [task.get_task_id() for task in final_output], final_profit
         
 if __name__ == '__main__':
     total = 0
-    for input_path in os.listdir('inputs_off/small/'):
+    for input_path in os.listdir('inputs_off/large/'):
         if input_path[0] == '.':
             continue
-        output_path = 'outputs/small/' + input_path[:-3] + '.out'
+        output_path = 'outputs/large/' + input_path[:-3] + '.out'
         print(input_path)
-        tasks = read_input_file('inputs_off/small/' + input_path)
+        tasks = read_input_file('inputs_off/large/' + input_path)
         output, prof = solve(tasks)
         total += prof
         write_output_file(output_path, output)
