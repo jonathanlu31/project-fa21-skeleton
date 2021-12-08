@@ -430,12 +430,12 @@ def solve(tasks):
         
 if __name__ == '__main__':
     total = 0
-    for input_path in os.listdir('inputs_off/large/'):
+    for input_path in os.listdir('inputs/large/'):
         if input_path[0] == '.':
             continue
         output_path = 'outputs/large/' + input_path[:-3] + '.out'
         print(input_path)
-        tasks = read_input_file('inputs_off/large/' + input_path)
+        tasks = read_input_file('inputs/large/' + input_path)
         output, prof = solve(tasks)
         total += prof
         write_output_file(output_path, output)
