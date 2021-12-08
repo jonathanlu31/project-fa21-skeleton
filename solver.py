@@ -1,5 +1,5 @@
 from parse import read_input_file, write_output_file
-import os, random, math, heapq, numpy as np
+import os, random, math, heapq
 
 def greedy(tasks, time):
     if not tasks:
@@ -359,10 +359,10 @@ def local_search_swaps(initial_tasks, soln, profit):
     hyperparameters: alpha (temp decay rate), temp decay schedule, starting temp, iterations per temp
     """
     temp = 4000
-    alpha = 0.99
+    alpha = 0.992
     curr_soln = soln
     curr_profit = profit
-    while temp > 0.001:
+    while temp > 0.0001:
         # print(curr_profit, prev_profit)
         for _ in range(100):
             # add extra tasks at end if extra time
@@ -417,7 +417,7 @@ def solve(tasks):
     # output = gen_rand_task_list(tasks)
     # output = [(x, 0) for x in output]
     # profit = calc_prof(output)
-    new_output, (new_profit, end_index) = asa(tasks, output, profit)
+    new_output, (new_profit, end_index) = local_search_swaps(tasks, output, profit)
     print(new_profit, new_profit - profit)
     # output, profit = genetic(tasks)
     # print(profit)
@@ -430,12 +430,12 @@ def solve(tasks):
         
 if __name__ == '__main__':
     total = 0
-    for input_path in os.listdir('inputs_off/small/'):
+    for input_path in os.listdir('inputs_off/large/'):
         if input_path[0] == '.':
             continue
-        output_path = 'outputs/small/' + input_path[:-3] + '.out'
+        output_path = 'outputs/large/' + input_path[:-3] + '.out'
         print(input_path)
-        tasks = read_input_file('inputs_off/small/' + input_path)
+        tasks = read_input_file('inputs_off/large/' + input_path)
         output, prof = solve(tasks)
         total += prof
         write_output_file(output_path, output)
